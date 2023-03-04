@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "istftnet"
 version = "0.0.0"
-description = "Description of this project"
+description = "Unofficial implementation of iSTFT, light-weight HiFi-GAN vocoder with iSTFT"
 authors = ["tarepan"]
 readme = "README.md"
 repository = "https://github.com/tarepan/iSTFTNet"
