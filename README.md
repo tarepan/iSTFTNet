@@ -17,17 +17,6 @@ Template for Machine Learning project with PyTorch.
 - [Results](#results)
 - [References](#references)
 
-## Template Usage <!-- omit in toc -->
-Replace place holders
-
-- `repo_name`: GitHub Repository name
-- `user_name`: GitHub UserName
-- `packname`: Your Package name (all lower-case, w/o underscore, [by PEP8][pep8_packname])
-
-Then, delete this clause.
-
-[pep8_packname]: https://peps.python.org/pep-0008/#package-and-module-names
-
 ## Demo
 Samples or Link to [demo page].  
 
@@ -37,13 +26,13 @@ Samples or Link to [demo page].
 ```bash
 # pip install "torch==1.11.0" -q      # Based on your environment (validated with vX.YZ)
 # pip install "torchaudio==0.11.0" -q # Based on your environment
-pip install git+https://github.com/user_name/repo_name
+pip install git+https://github.com/tarepan/iSTFTNet
 ```
 
 ### Train
 Jump to ☞ [![ColabBadge]][notebook], then Run. That's all!  
 
-For arguments, check [./packname/config.py](https://github.com/user_name/repo_name/blob/main/packname/config.py).  
+For arguments, check [./istftnet/config.py](https://github.com/tarepan/iSTFTNet/blob/main/istftnet/config.py).  
 For dataset, check [`speechcorpusy`](https://github.com/tarepan/speechcorpusy).  
 
 ### Inference
@@ -64,7 +53,7 @@ For detail, jump to ☞ [![ColabBadge]][notebook] and check it.
 ## References
 ### Original paper <!-- omit in toc -->
 [![PaperBadge]][paper]  
-<!-- Generated with the tool -> https://arxiv2bibtex.org/?q=0000.00000&format=bibtex -->
+<!-- Generated with the tool -> https://arxiv2bibtex.org/?q=2203.02395&format=bibtex -->
 ```
 bibtex
 ```
@@ -74,7 +63,7 @@ bibtex
 
 [ColabBadge]:https://colab.research.google.com/assets/colab-badge.svg
 
-[paper]:https://arxiv.org/abs/0000.00000
-[PaperBadge]:https://img.shields.io/badge/paper-arxiv.0000.00000-B31B1B.svg
-[notebook]:https://colab.research.google.com/github/user_name/repo_name/blob/main/packname.ipynb
+[paper]:https://arxiv.org/abs/2203.02395
+[PaperBadge]:https://img.shields.io/badge/paper-arxiv.2203.02395-B31B1B.svg
+[notebook]:https://colab.research.google.com/github/tarepan/iSTFTNet/blob/main/istftnet.ipynb
 [demo page]:https://demo.project.your
