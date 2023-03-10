@@ -8,7 +8,7 @@ import numpy as np
 from omegaconf import MISSING
 from torch import from_numpy, stack # pyright: ignore [reportUnknownVariableType] ; because of PyTorch ; pylint: disable=no-name-in-module
 
-from ..domain import FugaBatched, HogeBatched, HogeFugaBatch, LenFuga
+from ..domain import FugaBatched, CondSeriesBatched, HogeFugaBatch, LenFuga
 from .domain import FugaDatum, HogeDatum, HogeFuga, HogeFugaDatum, Piyo, Hoge, Fuga
 
 
@@ -141,7 +141,7 @@ def augment(conf: ConfAugment, hoge_fuga: HogeFuga) -> HogeFugaDatum:
 def collate(datums: List[HogeFugaDatum]) -> HogeFugaBatch:
     """Collation (datum_to_batch) - Bundle multiple datum into a batch."""
 
-    hoge_batched: HogeBatched = stack([from_numpy(datum[0]) for datum in datums])
+    hoge_batched: CondSeriesBatched = stack([from_numpy(datum[0]) for datum in datums])
     fuga_batched: FugaBatched = stack([from_numpy(datum[1]) for datum in datums])
     len_fuga: LenFuga = [datum[1].shape[0] for datum in datums]
 

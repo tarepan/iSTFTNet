@@ -12,6 +12,110 @@ from .data.transform import ConfTransform
 from .data.datamodule import ConfData
 from .model import ConfModel
 
+"""
+feat_in:    80
+kernel_pre:  7
+c_stack_i: 512
+upmrfs:
+    -
+        c_in:  512
+        c_out: 256
+        up_kernel: 16
+        mrf:
+            resblocks:
+                -
+                    kernel: 3
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+                -
+                    kernel: 7
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+                -
+                    kernel: 11
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+    -
+        c_in:  256
+        c_out: 128
+        up_kernel: 16
+        mrf:
+            resblocks:
+                -
+                    kernel: 3
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+                -
+                    kernel: 7
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+                -
+                    kernel: 11
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+    -
+        c_in:  128
+        c_out:  64
+        up_kernel: 4
+        mrf:
+            resblocks:
+                -
+                    kernel: 3
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+                -
+                    kernel: 7
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+                -
+                    kernel: 11
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+    -
+        c_in:   64
+        c_out:  32
+        up_kernel: 4
+        mrf:
+            resblocks:
+                -
+                    kernel: 3
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+                -
+                    kernel: 7
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+                -
+                    kernel: 11
+                    resconvs:
+                        - dilations: [1, 1]
+                        - dilations: [3, 1]
+                        - dilations: [5, 1]
+c_stack_o:  32
+kernel_post: 7
+"""
 
 CONF_DEFAULT_STR = """
 seed: 1234

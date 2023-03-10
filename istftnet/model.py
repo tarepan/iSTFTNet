@@ -15,7 +15,7 @@ from omegaconf import MISSING
 from .domain import HogeFugaBatch
 from .data.domain import Piyo
 from .data.transform import ConfTransform, augment, collate, load_raw, preprocess
-from .networks.network import Network, ConfNetwork
+from .networks.generator import Generator, ConfGenerator
 
 
 @dataclass
@@ -34,7 +34,7 @@ class ConfOptim:
 class ConfModel:
     """Configuration of the Model.
     """
-    net: ConfNetwork = ConfNetwork()
+    net: ConfGenerator = ConfGenerator()
     optim: ConfOptim = ConfOptim()
     transform: ConfTransform = ConfTransform()
 
@@ -46,7 +46,7 @@ class Model(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self._conf = conf
-        self._net = Network(conf.net)
+        self._net = Generator(conf.net)
 
     def forward(self, batch: HogeFugaBatch): # pyright: ignore [reportIncompatibleMethodOverride] ; pylint: disable=arguments-differ
         """(PL API) Run inference toward a batch.

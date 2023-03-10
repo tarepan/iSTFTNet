@@ -18,12 +18,12 @@ from torch import Tensor # pyright: ignore [reportUnknownVariableType] ; because
 
 # Data batch
 
-## :: (Batch=b, T=t, 1) - hoge hoge
-HogeBatched = Tensor
+## :: (B, Feat, T) - Conditioning series
+CondSeriesBatched = Tensor
 ## :: (Batch=b, T=t, 1) - fuga fuga
 FugaBatched = Tensor
 ## :: (L=b,)            - Non-padded length of items in the FugaBatched
 LenFuga = List[int]
 
 ## the batch
-HogeFugaBatch = Tuple[HogeBatched, FugaBatched, LenFuga]
+HogeFugaBatch = Tuple[CondSeriesBatched, FugaBatched, LenFuga]
