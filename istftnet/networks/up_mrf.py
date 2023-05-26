@@ -40,12 +40,12 @@ class MRF(nn.Module):
 
 @dataclass
 class ConfUpMRF:
-    """Configuration of `UpMRF`."""
-    c_in:      int     = MISSING          # Channel dimension size of UpMRF input
-    c_out:     int     = MISSING          # Channel dimension size of UpMRF output
-    up_kernel: int     = MISSING          # Kernel size of upsampling conv
+    """Configuration of the UpMRF."""
+    feat_i:    int     = MISSING          # Feature dimension size of UpMRF input
+    feat_o:    int     = MISSING          # Feature dimension size of UpMRF output
+    up_kernel: int     = MISSING          # Kernel size of upsampling convT, should be even number
     mrf:       ConfMRF = default(ConfMRF( # The MRF
-        channel=II("${..c_out}")))            # MRF keep channel size, so should be UpMRF's output channel size
+        feat=II("${..feat_o}")))              # MRF keep feature dim size, so should be UpMRF's output channel size
 
 class UpMRF(nn.Module):
     """Upsampling + MultiReceptiveField.
@@ -53,14 +53,17 @@ class UpMRF(nn.Module):
     def __init__(self, conf: ConfUpMRF):
         super().__init__()
 
-        # Upsampling is configured to 'half-overlap'
-        kernel, stride = conf.up_kernel, conf.up_kernel // 2
-        # Larger LReLU slope
+        # Params
+        kernel, stride = conf.up_kernel, conf.up_kernel // 2 # half-overlap
+        pad = (kernel - stride) // 2
         lrelu_slope = 0.1
 
+        # Validation
+        assert kernel % 2 == 0, f"Kernel size should be even-number for half-overlap, but {kernel}."
+        assert stride % 2 == 0, f"Currently support only even-number stride for even-padding, but {stride}."
+
         # Upsampling by TConv
-        ## TODO: padding
-        up_conv = weight_norm(nn.ConvTranspose1d(conf.c_in, conf.c_out, kernel, stride))
+        up_conv = weight_norm(nn.ConvTranspose1d(conf.feat_i, conf.feat_o, kernel, stride, padding=pad))
         up_conv.apply(init_conv_norm)
 
         # LReLU-Up-MRF
