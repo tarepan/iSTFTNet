@@ -65,56 +65,11 @@ upmrfs:
                         - dilations: [1, 1]
                         - dilations: [3, 1]
                         - dilations: [5, 1]
-    -
-        feat_i:    128
-        feat_o:     64
-        up_kernel:   4
-        mrf:
-            resblocks:
-                -
-                    kernel: 3
-                    resconvs:
-                        - dilations: [1, 1]
-                        - dilations: [3, 1]
-                        - dilations: [5, 1]
-                -
-                    kernel: 7
-                    resconvs:
-                        - dilations: [1, 1]
-                        - dilations: [3, 1]
-                        - dilations: [5, 1]
-                -
-                    kernel: 11
-                    resconvs:
-                        - dilations: [1, 1]
-                        - dilations: [3, 1]
-                        - dilations: [5, 1]
-    -
-        feat_i:    64
-        feat_o:    32
-        up_kernel:  4
-        mrf:
-            resblocks:
-                -
-                    kernel: 3
-                    resconvs:
-                        - dilations: [1, 1]
-                        - dilations: [3, 1]
-                        - dilations: [5, 1]
-                -
-                    kernel: 7
-                    resconvs:
-                        - dilations: [1, 1]
-                        - dilations: [3, 1]
-                        - dilations: [5, 1]
-                -
-                    kernel: 11
-                    resconvs:
-                        - dilations: [1, 1]
-                        - dilations: [3, 1]
-                        - dilations: [5, 1]
-feat_ln:  32
+feat_ln:  128
 kernel_post: 7
+istft:
+    nfft: 16
+    hop:   4
 """
 
 CONF_DEFAULT_STR = """
