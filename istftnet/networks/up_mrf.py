@@ -17,10 +17,10 @@ from .initializer import init_conv_norm
 
 @dataclass
 class ConfMRF:
-    """Configuration of `MRF`."""
-    channel:   int                = MISSING                    # Channel dimension size of input/middle/output
+    """Configuration of the MRF."""
+    feat:   int                = MISSING                       # Feature dimension size of input/middle/output
     resblocks: list[ConfResBlock] = list_default(ConfResBlock( # Different-kernel ResBlocks
-        channel=II("${..channel}")))                               # All blocks keep channel dimension size
+        feat=II("${..feat}")))                                     # All blocks keep channel dimension size
 
 class MRF(nn.Module):
     """Multi-ReceptiveField (kernel) ResBlocks.
@@ -28,14 +28,14 @@ class MRF(nn.Module):
     def __init__(self, conf: ConfMRF):
         super().__init__()
         self.res_blocks = nn.ModuleList([ResBlock(conf_resblock) for conf_resblock in conf.resblocks])
-        self.n_blocks = len(conf.resblocks)
+        self._n_blocks = len(conf.resblocks)
 
-    def forward(self, ipt: Tensor) -> Tensor: # pyright: ignore [reportIncompatibleMethodOverride]
+    def forward(self, series: Tensor) -> Tensor: # pyright: ignore [reportIncompatibleMethodOverride]
         """(PT API) Forward :: (B, Feat, T) -> (B, Feat, T)"""
-        opt = zeros_like(ipt)
+        opt = zeros_like(series)
         for res_block in self.res_blocks:
-            opt += res_block(ipt)
-        return opt / self.n_blocks
+            opt += res_block(series)
+        return opt / self._n_blocks
 
 
 @dataclass
@@ -67,7 +67,7 @@ class UpMRF(nn.Module):
         self.model = nn.Sequential(*[nn.LeakyReLU(lrelu_slope), up_conv, MRF(conf.mrf)])
 
     def forward(self, i_pred: Tensor) -> Tensor: # pyright: ignore [reportIncompatibleMethodOverride]
-        """(PT API) Forward :: (B, Feat=c_in, T=t) -> (B, Feat=c_out, T = t*k/2)"""
+        """(PT API) Forward :: (B, Feat=i, T=t) -> (B, Feat=o, T = t*k/2)"""
         return self.model(i_pred)
 
     # TODO: remove_weight_norm

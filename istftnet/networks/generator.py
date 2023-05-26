@@ -20,11 +20,11 @@ from .initializer import init_conv_norm
 @dataclass
 class ConfGenerator:
     """Configuration of the iSTFTNet Generator."""
-    feat_in:     int             = MISSING                   # Feature dimension size of input
+    feat_i:      int             = MISSING                   # Feature dimension size of input
     kernel_pre:  int             = MISSING                   # Kernel size of PreConv
-    c_stack_i:   int             = MISSING                   # Channel dimension size of UpMRF stack's input
+    feat_l0:     int             = MISSING                   # Feature dimension size of layer 0, UpMRF stack's input
     upmrfs:      list[ConfUpMRF] = list_default(ConfUpMRF()) # UpMRF stack
-    c_stack_o:   int             = MISSING                   # Channel dimension size of UpMRF stack's input
+    feat_ln:     int             = MISSING                   # Feature dimension size of layer N, UpMRF stack's output
     kernel_post: int             = MISSING                   # Kernel size of PostConv
     istft:       ConfISTFT       = default(ConfISTFT())      # Final iSTFT
 
@@ -34,12 +34,12 @@ class Generator(nn.Module):
     def __init__(self, conf: ConfGenerator):
         super().__init__()
 
-        # Follow HiFiGAN-official (PyTorch default value, not equal to UpMRF)
-        lrelu_slope = 0.01
+        # Rarams
+        lrelu_slope = 0.01 # Follow HiFiGAN-official (PyTorch default value, not equal to UpMRF)
 
         # PreConv / PostConv
-        pre_conv  = weight_norm(nn.Conv1d(conf.feat_in,   conf.c_stack_i, conf.kernel_pre,  padding="same"))
-        post_conv = weight_norm(nn.Conv1d(conf.c_stack_o, 1,              conf.kernel_post, padding="same"))
+        pre_conv  = weight_norm(nn.Conv1d(conf.feat_i,   conf.feat_l0, conf.kernel_pre,  padding="same"))
+        post_conv = weight_norm(nn.Conv1d(conf.feat_ln,             1, conf.kernel_post, padding="same"))
         ## NOTE: Following PWG-unofficial (In HiFiGAN-official, pre_conv is not manually initialized)
         pre_conv.apply(init_conv_norm)
         post_conv.apply(init_conv_norm)
@@ -52,7 +52,7 @@ class Generator(nn.Module):
         layers += [post_conv]
         layers += [nn.Tanh()]
         # layers += [ISTFT(conf.istft)]
-        self.model = nn.Sequential(*layers)
+        self.net = nn.Sequential(*layers)
 
     def forward(self, cond_series: CondSeriesBatched) -> Tensor: # pyright: ignore [reportIncompatibleMethodOverride]
         """(PT API) Forward.
@@ -62,6 +62,6 @@ class Generator(nn.Module):
         Returns:
             :: (B, T) - Predicted waveform
         """
-        return self.model(cond_series)
+        return self.net(cond_series)
 
     # TODO: remove_weight_norm
