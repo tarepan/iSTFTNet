@@ -7,30 +7,27 @@ readme = "README.md"
 repository = "https://github.com/tarepan/iSTFTNet"
 
 [tool.poetry.dependencies]
-python = "^3.7"
-numpy = ">=1.17"
-pytorch-lightning = "^1.4.9"
-fsspec = {version = ">=2021.5", extras = ["http", "s3"]}
-boto3 = "^1.16.18"
-tqdm = "^4.0.0"
-omegaconf = "^2.1.1"
+python = "^3.9"
+numpy = "^1.22.4"
+tqdm = "4.*"
+omegaconf = "2.3.*"
+librosa = "^0.10.0"
 speechcorpusy = {git = "https://github.com/tarepan/speechcorpusy.git", rev = "main"}
 speechdatasety = {git = "https://github.com/tarepan/speechdatasety.git", rev = "main"}
 configen = {git = "https://github.com/tarepan/configen.git", rev = "main"}
-lightlightning = {git = "https://github.com/tarepan/lightlightning.git", rev = "main"}
-## Dependencies for Audio
-# pyloudnorm = "^0.1.0"
-# librosa = "^0.8.0"
+extorch = {git = "https://github.com/tarepan/extorch", rev = "main"}
 ## Poetry is not good for version control of PyTorch (it has many many variants for a version, so poetry become confused)
-## torch = "1.11.0"
-## torchaudio = "*"
+## torch = "2.0.0"
+## torchaudio = "2.0.1"
+## lightning = "2.0.*"
+## lightlightning = {git = "https://github.com/tarepan/lightlightning.git", rev = "main"}
 
 [tool.poetry.dev-dependencies]
-types-tqdm = "^4.64.1"
-pytest = "^7.1.2"
+types-tqdm = "4.*"
+pytest = "7.*"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pylint.messages_control]
