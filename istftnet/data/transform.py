@@ -1,15 +1,20 @@
 """Data transformation"""
 
 from dataclasses import dataclass
-from typing import List
 from pathlib import Path
 
-import numpy as np
-from omegaconf import MISSING
-from torch import from_numpy, stack # pyright: ignore [reportUnknownVariableType] ; because of PyTorch ; pylint: disable=no-name-in-module
+from omegaconf import MISSING, II
+from torch import Tensor, FloatTensor, stack, clamp, log # pyright: ignore [reportUnknownVariableType] ; because of PyTorch ; pylint: disable=no-name-in-module
+import torch.nn.functional as F
+from torchaudio.functional import resample       # pyright: ignore [reportMissingTypeStubs]; because of torchaudio
+from torchaudio.transforms import MelSpectrogram # pyright: ignore [reportMissingTypeStubs]; because of torchaudio
+import librosa
+from librosa.util import normalize # pyright: ignore [reportUnknownVariableType] ; pylint: disable=no-name-in-module; because of librosa
 
-from ..domain import FugaBatched, CondSeriesBatched, HogeFugaBatch, LenFuga
-from .domain import FugaDatum, HogeDatum, HogeFuga, HogeFugaDatum, Piyo, Hoge, Fuga
+from istftnet.data.clip import clip_segment_random, match_length
+
+from ..domain import MelIptBatched, WaveBatched, MelOptBatched, MelWaveMelBatch
+from .domain import Raw, ItemMelIpt, ItemWave, ItemMelOpt, ItemMelWaveMel, DatumMelWaveMel
 
 
 # [Data transformation]
@@ -20,87 +25,119 @@ from .domain import FugaDatum, HogeDatum, HogeFuga, HogeFugaDatum, Piyo, Hoge, F
 
 ###################################################################################################################################
 # [Load]
-"""
-(delele here when template is used)
 
-[Design Notes - Load as transformation]
-    Loading determines data shape, and load utilities frequently modify the data.
-    In this meaning, load has similar 'transform' funtionality.
-    For this reason, `load_raw` is placed here.
-"""
-
-@dataclass
-class ConfLoad:
-    """
-    Configuration of piyo loading.
-    Args:
-        sampling_rate - Sampling rate
-    """
-    sampling_rate: int = MISSING
-
-def load_raw(conf: ConfLoad, path: Path) -> Piyo:
-    """Load raw data 'piyo' from the adress."""
-
-    # Audio Example (librosa is not handled by this template)
-    import librosa # pyright: ignore [reportMissingImports, reportUnknownVariableType] ; pylint: disable=import-outside-toplevel,import-error
-    piyo: Piyo = librosa.load(path, sr=conf.sampling_rate, mono=True)[0] # pyright: ignore [reportUnknownMemberType]
-
-    return piyo
+def load_raw(path: Path) -> Raw:
+    """Load raw data from the adress."""
+    return librosa.load(path, sr=None, mono=True) # pyright: ignore [reportUnknownMemberType, reportUnknownVariableType]; because of librosa
 
 ###################################################################################################################################
 # [Preprocessing]
 
 @dataclass
-class ConfPiyo2Hoge:
-    """
-    Configuration of piyo-to-hoge preprocessing.
-    Args:
-        amp - Amplification factor
-    """
-    amp: float = MISSING
+class ConfRaw2Wave:
+    """Configuration of the raw2wave."""
+    sr_target: int = MISSING # Waveform resampling target sampling rate
+    use_cuda: bool = MISSING
 
-def piyo_to_hoge(conf: ConfPiyo2Hoge, piyo: Piyo) -> Hoge:
-    """Convert piyo to hoge.
-    """
-    # Amplification :: (T,) -> (T,)
-    hoge: Hoge = piyo * conf.amp
+def raw_to_wave(raw: Raw, conf: ConfRaw2Wave) -> ItemWave:
+    """Convert raw data into waveform."""
 
-    return hoge
+    wave = FloatTensor(raw[0])
+    # Resampling
+    wave = wave if not conf.use_cuda else wave.cuda()
+    wave = resample(wave, int(raw[1]), conf.sr_target)
+
+    # Scaling - any range to [-0.95, +0.95]
+    wave = normalize(wave.cpu().numpy()) * 0.95
+
+    return FloatTensor(wave)
 
 
 @dataclass
-class ConfPiyo2Fuga:
-    """
-    Configuration of piyo-to-fuga preprocessing.
+class ConfWave2Mel:
+    """Configuration of the wave2mel."""
+    n_fft:         int        = MISSING
+    hop:           int        = MISSING
+    win_size:      int        = MISSING
+    sampling_rate: int        = MISSING # Wave sampling rate
+    mel:           int        = MISSING # The number of mel frequency bin
+    fmin:          int        = MISSING # Minimum frequency
+    fmax:          int | None = MISSING # Maximum frequency
+
+def gen_melnizer(conf: ConfWave2Mel) -> MelSpectrogram:
+    """Instantiate wave-to-mel class."""
+    return MelSpectrogram(conf.sampling_rate, conf.n_fft, conf.win_size, conf.hop, conf.fmin, conf.fmax, n_mels=conf.mel, power=1, norm="slaney", mel_scale="slaney", center=False)
+
+
+def wave_to_mel_batch(waves: Tensor, melnizer: MelSpectrogram, conf: ConfWave2Mel) -> Tensor:
+    """Convert waveforms into melspectrograms.
+
     Args:
-        div - Division factor
+        waves :: (B, T)           - Waveforms    
+    Returns:
+              :: (B, Freq, Frame) - melspectrogram
     """
-    div: float = MISSING
 
-def piyo_to_fuga(conf: ConfPiyo2Fuga, piyo: Piyo) -> Fuga:
-    """Convert piyo to fuga.
-    """
-    # Division :: (T,) -> (T,)
-    fuga: Fuga = piyo / conf.div
+    # Centering
+    pad = int((conf.n_fft - conf.hop)/2)
+    waves = F.pad(waves.unsqueeze(1), (pad, pad), mode='reflect').squeeze(1)
 
-    return fuga
+    # Transform
+    melspec = melnizer(waves)
+    logmel = log(clamp(melspec, min=1e-5))
+
+    return logmel
+
+
+def wave_to_mel(wave: ItemWave, melnizer: MelSpectrogram, conf: ConfWave2Mel) -> ItemMelIpt | ItemMelOpt:
+    """Convert a waveform into a melspectrogram."""
+    return wave_to_mel_batch(wave.unsqueeze(0), melnizer, conf).squeeze(0)
+
 
 @dataclass
 class ConfPreprocess:
-    """
-    Configuration of item-to-datum augmentation.
-    Args:
-        len_clip - Length of clipping
-    """
-    piyo2hoge: ConfPiyo2Hoge = ConfPiyo2Hoge()
-    piyo2fuga: ConfPiyo2Fuga = ConfPiyo2Fuga()
+    """Configuration of item-to-datum augmentation."""
+    n_fft:             int = MISSING
+    hop:               int = MISSING
+    win_size:          int = MISSING
+    sampling_rate:     int = MISSING # Wave sampling rate
+    mel:               int = MISSING # The number of mel frequency bin
+    fmin:              int = MISSING # Minimum frequency
+    segment_wavescale: int = MISSING # Segment length [samples]
+    use_cuda:      bool = MISSING # Whether to use CUDA
+    raw2wave:    ConfRaw2Wave = ConfRaw2Wave(
+        sr_target    =II("${..sampling_rate}"),
+        use_cuda     =II("${..use_cuda}"))
+    wave2melipt: ConfWave2Mel = ConfWave2Mel(
+        n_fft        =II("${..n_fft}"),
+        hop          =II("${..hop}"),
+        win_size     =II("${..win_size}"),
+        sampling_rate=II("${..sampling_rate}"),
+        mel          =II("${..mel}"),
+        fmin         =II("${..fmin}"))
+    wave2melopt: ConfWave2Mel = ConfWave2Mel(
+        n_fft        =II("${..n_fft}"),
+        hop          =II("${..hop}"),
+        win_size     =II("${..win_size}"),
+        sampling_rate=II("${..sampling_rate}"),
+        mel          =II("${..mel}"),
+        fmin         =II("${..fmin}"))
 
-def preprocess(conf: ConfPreprocess, raw: Piyo) -> HogeFuga:
-    """Preprocessing (raw_to_item) - Process raw data into item.
+def preprocess(conf: ConfPreprocess, raw: Raw, milnizer_ipt: MelSpectrogram, milnizer_opt: MelSpectrogram) -> ItemMelWaveMel:
+    """Preprocess raw data into the item."""
 
-    Piyo -> Hoge & Fuga
-    """
-    return piyo_to_hoge(conf.piyo2hoge, raw), piyo_to_fuga(conf.piyo2fuga, raw)
+    wave = raw_to_wave(raw, conf.raw2wave)
+
+    if conf.use_cuda:
+        wave, milnizer_ipt, milnizer_opt = wave.cuda(), milnizer_ipt.cuda(), milnizer_opt.cuda()
+
+    mel_ipt = wave_to_mel(wave, milnizer_ipt, conf.wave2melipt).cpu()
+    mel_opt = wave_to_mel(wave, milnizer_opt, conf.wave2melopt).cpu()
+    wave    = wave.cpu()
+
+    mel_ipt, wave, mel_opt = match_length([(mel_ipt, conf.hop), (wave, 1), (mel_opt, conf.hop)], conf.segment_wavescale)
+
+    return mel_ipt, wave, mel_opt
 
 ###################################################################################################################################
 # [Augmentation]
@@ -112,46 +149,37 @@ class ConfAugment:
     Args:
         len_clip - Length of clipping
     """
-    len_clip: int = MISSING
+    segment_wavescale: int = MISSING # Segment length with waveform scale [samples]
+    hop_mel:           int = MISSING # Hop size of melspectrograms
 
-def augment(conf: ConfAugment, hoge_fuga: HogeFuga) -> HogeFugaDatum:
-    """Augmentation (item_to_datum) - Dynamically modify item into datum.
+def augment(conf: ConfAugment, items: ItemMelWaveMel) -> DatumMelWaveMel:
+    """Dynamically modify item into datum."""
+    mel_ipt, wave, mel_opt = items
 
-    Clipping + DimensionExpansion
-    """
-    hoge, fuga = hoge_fuga
+    mel_ipt_datum, wave_datum, mel_opt_datum = clip_segment_random([(mel_ipt, conf.hop_mel), (wave, 1), (mel_opt, conf.hop_mel)], conf.segment_wavescale)
 
-    # Clipping
-    ## :: (T=t,) -> (T=L,)
-    hoge = hoge[:conf.len_clip]
-    ## :: (T=t,) -> (T=L,)
-    fuga = fuga[:conf.len_clip]
-
-    # Dimension expansion
-    ## :: (T,) -> (T, 1)
-    hoge_datum: HogeDatum = np.expand_dims(hoge, axis=-1) # pyright: ignore [reportUnknownMemberType] ; because of numpy
-    ## :: (T,) -> (T, 1)
-    fuga_datum: FugaDatum = np.expand_dims(fuga, axis=-1) # pyright: ignore [reportUnknownMemberType]; because of numpy
-
-    return hoge_datum, fuga_datum
+    return mel_ipt_datum, wave_datum, mel_opt_datum
 
 ###################################################################################################################################
 # [collation]
 
-def collate(datums: List[HogeFugaDatum]) -> HogeFugaBatch:
+def collate(datums: list[DatumMelWaveMel]) -> MelWaveMelBatch:
     """Collation (datum_to_batch) - Bundle multiple datum into a batch."""
 
-    hoge_batched: CondSeriesBatched = stack([from_numpy(datum[0]) for datum in datums])
-    fuga_batched: FugaBatched = stack([from_numpy(datum[1]) for datum in datums])
-    len_fuga: LenFuga = [datum[1].shape[0] for datum in datums]
+    mel_ipt_batched: MelIptBatched = stack([datum[0] for datum in datums])
+    wave_batched:    WaveBatched   = stack([datum[1] for datum in datums])
+    mel_opt_batched: MelOptBatched = stack([datum[2] for datum in datums])
 
-    return hoge_batched, fuga_batched, len_fuga
+    return mel_ipt_batched, wave_batched, mel_opt_batched
 
 ###################################################################################################################################
 
 @dataclass
 class ConfTransform:
     """Configuration of data transform."""
-    load: ConfLoad = ConfLoad()
-    preprocess: ConfPreprocess = ConfPreprocess()
-    augment: ConfAugment = ConfAugment()
+    hop_mel:           int = MISSING #
+    segment_wavescale: int = MISSING #
+    preprocess: ConfPreprocess = ConfPreprocess(
+        hop              =II("${..hop_mel}"),
+        segment_wavescale=II("${..segment_wavescale}"))
+    augment:    ConfAugment    = ConfAugment()

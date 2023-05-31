@@ -76,15 +76,19 @@ CONF_DEFAULT_STR = """
 seed: 1234
 path_extend_conf: null
 transform:
-    load:
-        sampling_rate: 16000
+    segment_wavescale: 8192
+    hop_mel:            256
     preprocess:
-        piyo2hoge:
-            amp: 1.2
-        piyo2fuga:
-            div: 3.0
-    augment:
-        len_clip: 10
+        n_fft:              1024
+        win_size:           1024
+        sampling_rate:     22050
+        mel:                  80
+        fmin:                  0
+        use_cuda:           true
+        wave2melipt:
+            fmax:              8000
+        wave2melopt:
+            fmax:              null
 model:
     net:
         dim_i: 1
@@ -132,17 +136,13 @@ train:
 
 @dataclass
 class ConfGlobal:
-    """Configuration of everything.
-    Args:
-        seed: PyTorch-Lightning's seed for every random system
-        path_extend_conf: Path of configuration yaml which extends default config
-    """
-    seed: int = MISSING
-    path_extend_conf: Optional[str] = MISSING
+    """Configuration of everything."""
+    seed: int                       = MISSING # PyTorch-Lightning's seed for every random system
+    path_extend_conf: Optional[str] = MISSING # Path of configuration yaml which extends default config
     transform: ConfTransform = ConfTransform()
-    model: ConfModel = ConfModel()
-    data: ConfData = ConfData()
-    train: ConfTrain = ConfTrain()
+    model:     ConfModel     = ConfModel()
+    data:      ConfData      = ConfData()
+    train:     ConfTrain     = ConfTrain()
 
 
 # Exported

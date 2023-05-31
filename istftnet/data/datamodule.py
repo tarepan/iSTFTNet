@@ -9,8 +9,8 @@ from omegaconf import MISSING, SI
 from speechdatasety.helper.loader import generate_loader, ConfLoader # pyright: ignore [reportMissingTypeStubs]
 from torch.utils.data import DataLoader
 
-from .domain import HogeFugaDatum
-from .dataset import HogeFugaDataset, ConfHogeFugaDataset
+from .domain import DatumMelWaveMel
+from .dataset import MelAudioMelDataset, ConfMelAudioMelDataset
 from .corpus import prepare_corpora, ConfCorpora
 
 
@@ -21,7 +21,7 @@ class ConfData:
     adress_data_root: Optional[str] = MISSING
     corpus: ConfCorpora = ConfCorpora(
         root=SI("${..adress_data_root}"))
-    dataset: ConfHogeFugaDataset = ConfHogeFugaDataset(
+    dataset: ConfMelAudioMelDataset = ConfMelAudioMelDataset(
         adress_data_root=SI("${..adress_data_root}"))
     loader: ConfLoader = ConfLoader()
 
@@ -44,19 +44,19 @@ class Data(LightningDataModule):
         corpus_train, corpus_val, corpus_test = prepare_corpora(self._conf.corpus)
 
         if stage == "fit" or stage is None:
-            self.dataset_train = HogeFugaDataset(self._conf.dataset, corpus_train)
-            self.dataset_val   = HogeFugaDataset(self._conf.dataset, corpus_val)
+            self.dataset_train = MelAudioMelDataset(self._conf.dataset, corpus_train)
+            self.dataset_val   = MelAudioMelDataset(self._conf.dataset, corpus_val)
         if stage == "test" or stage is None:
-            self.dataset_test  = HogeFugaDataset(self._conf.dataset, corpus_test)
+            self.dataset_test  = MelAudioMelDataset(self._conf.dataset, corpus_test)
 
-    def train_dataloader(self) -> DataLoader[HogeFugaDatum]:
+    def train_dataloader(self) -> DataLoader[DatumMelWaveMel]:
         """(PL-API) Generate training dataloader."""
         return generate_loader(self.dataset_train, self._conf.loader, "train")
 
-    def val_dataloader(self) -> DataLoader[HogeFugaDatum]:
+    def val_dataloader(self) -> DataLoader[DatumMelWaveMel]:
         """(PL-API) Generate validation dataloader."""
         return generate_loader(self.dataset_val,   self._conf.loader, "val")
 
-    def test_dataloader(self) -> DataLoader[HogeFugaDatum]:
+    def test_dataloader(self) -> DataLoader[DatumMelWaveMel]:
         """(PL-API) Generate test dataloader."""
         return generate_loader(self.dataset_test,  self._conf.loader, "test")

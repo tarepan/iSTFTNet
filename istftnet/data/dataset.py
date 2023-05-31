@@ -14,49 +14,16 @@ from speechdatasety.helper.archive import try_to_acquire_archive_contents, save_
 from speechdatasety.helper.adress import dataset_adress                                 # pyright: ignore [reportMissingTypeStubs]
 from speechdatasety.helper.access import generate_saver_loader                          # pyright: ignore [reportMissingTypeStubs]
 
-from ..domain import HogeFugaBatch
-from .domain import HogeFuga_, HogeFugaDatum
-from .transform import ConfTransform, load_raw, preprocess, augment, collate
+from ..domain import MelWaveMelBatch
+from .domain import ItemMelWaveMel_, DatumMelWaveMel
+from .transform import ConfTransform, gen_melnizer, load_raw, preprocess, augment, collate
 
 
-"""
-(delele here when template is used)
-
-[Design Notes - Corpus instance]
-    'Corpus in Dataset' enables corpus lazy evaluation, which enables corpus contents download skip.
-    For this reason, `AbstractCorpus` instances are passed to the Dataset.
-
-[Design Notes - Corpus item]
-    Corpus split is logically separated from Dataset.
-    If we get corpus items by corpus instance method call in the dataset, we should write split logic in the dataset.
-    If we pass splitted items to the dataset, we can separate split logic from the dataset.
-    For this reason, both corpus instance and selected item list are passed as arguments.
-
-[Design Notes - Corpus item path]
-    Corpus instance has path-getter method.
-    If we have multiple corpuses, we should distinguish the corpus that the item belongs to.
-    If we pass paths as arguments, this problem disappear.
-    For this reason, corpus_instance/selected_item_list/item_path are passed as arguments.
-
-[Design Notes - Init interface]
-    Dataset could consume multiple corpuses (corpus tuples), and the number is depends on project.
-    For example, TTS will consumes single corpus, but voice conversion will consumes 'source' corpus and 'target' corpus.
-    It means that init arguments are different between projects.
-    For this reason, the Dataset do not have common init Inferface, it's up to you.
-
-[Disign Notes - Responsibility]
-    Data transformation itself is logical process (independent of implementation).
-    In implementation/engineering, load/save/archiving etc... is indispensable.
-    We could contain both data transform and enginerring in Dataset, but it can be separated.
-    For this reason, Dataset has responsibility for only data handling, not data transform.
-"""
-
-
-CorpusItems = Tuple[AbstractCorpus, List[Tuple[ItemId, Path]]]
+CorpusItems = Tuple[AbstractCorpus, list[tuple[ItemId, Path]]]
 
 
 @dataclass
-class ConfHogeFugaDataset:
+class ConfMelAudioMelDataset:
     """Configuration of HogeFuga dataset.
     Args:
         adress_data_root - Root adress of data
@@ -66,10 +33,10 @@ class ConfHogeFugaDataset:
     attr1: int = MISSING
     transform: ConfTransform = ConfTransform()
 
-class HogeFugaDataset(Dataset[HogeFugaDatum]):
-    """The Hoge/Fuga dataset from the corpus.
+class MelAudioMelDataset(Dataset[DatumMelWaveMel]):
+    """The MelIpt/Audio/MelOpt dataset from the corpus.
     """
-    def __init__(self, conf: ConfHogeFugaDataset, items: CorpusItems):
+    def __init__(self, conf: ConfMelAudioMelDataset, items: CorpusItems):
         """
         Args:
             conf: The Configuration
@@ -79,16 +46,14 @@ class HogeFugaDataset(Dataset[HogeFugaDatum]):
         # Store parameters
         self._conf = conf
         self._corpus = items[0]
-        self._items = items[1]
+        self._items  = items[1]
 
         # Calculate data path
         conf_specifier = f"{conf.attr1}{conf.transform}"
         item_specifier = f"{list(map(lambda item: item[0], self._items))}"
         exp_specifier = md5((conf_specifier+item_specifier).encode()).hexdigest()
-        self._adress_archive, self._path_contents = dataset_adress(
-            conf.adress_data_root, self._corpus.__class__.__name__, "HogeFuga", exp_specifier
-        )
-        self._save_hogefuga, self._load_hogefuga = generate_saver_loader(HogeFuga_, ["hoge", "fuga"], self._path_contents)
+        self._adress_archive, self._path_contents = dataset_adress(conf.adress_data_root, self._corpus.__class__.__name__, "MelAudioMel", exp_specifier)
+        self._save, self._load = generate_saver_loader(ItemMelWaveMel_, ["mel", "wave", "mel"], self._path_contents)
 
         # Deploy dataset contents
         ## Try to 'From pre-generated dataset archive'
@@ -108,10 +73,12 @@ class HogeFugaDataset(Dataset[HogeFugaDatum]):
         self._corpus.get_contents()
 
         # Preprocessing - Load/Transform/Save
+        melnizer_ipt = gen_melnizer(self._conf.transform.preprocess.wave2melipt)
+        melnizer_opt = gen_melnizer(self._conf.transform.preprocess.wave2melopt)
         for item_id, item_path in tqdm(self._items, desc="Preprocessing", unit="item"):
-            piyo = load_raw(self._conf.transform.load, item_path)
-            hoge_fuga = preprocess(self._conf.transform.preprocess, piyo)
-            self._save_hogefuga(item_id, hoge_fuga)
+            raw = load_raw(item_path)
+            mel_wave_mel_item = preprocess(self._conf.transform.preprocess, raw, melnizer_ipt, melnizer_opt)
+            self._save(item_id, mel_wave_mel_item)
 
         print("Archiving new dataset...")
         save_archive(self._path_contents, self._adress_archive)
@@ -119,15 +86,15 @@ class HogeFugaDataset(Dataset[HogeFugaDatum]):
 
         print("Generated new dataset.")
 
-    def __getitem__(self, n: int) -> HogeFugaDatum:
+    def __getitem__(self, n: int) -> DatumMelWaveMel:
         """(API) Load the n-th datum from the dataset with tranformation.
         """
         item_id = self._items[n][0]
-        return augment(self._conf.transform.augment, self._load_hogefuga(item_id))
+        return augment(self._conf.transform.augment, self._load(item_id))
 
     def __len__(self) -> int:
         return len(self._items)
 
-    def collate_fn(self, items: List[HogeFugaDatum]) -> HogeFugaBatch:
+    def collate_fn(self, items: List[DatumMelWaveMel]) -> MelWaveMelBatch:
         """(API) datum-to-batch function."""
         return collate(items)

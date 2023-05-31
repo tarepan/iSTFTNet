@@ -1,39 +1,28 @@
 """Data domain"""
 
 
-from typing import Tuple
-
 import numpy as np
 from numpy.typing import NDArray
+from torch import Tensor, tensor
 
 
-"""
-(delele here when template is used)
-
-[Design Notes - Separated domain]
-    Data processing easily have circular dependencies.
-    Internal data type of the data can be splitted into domain file.
-"""
-
-# `XX_` is for typing
+# Raw inputs
+Raw  = tuple[NDArray[np.float32], float] # :: (T,) - Raw waveform and its sampling rate
 
 # Statically-preprocessed item
-## Piyo :: (T,) - piyo piyo
-Piyo = NDArray[np.float32]
-## Hoge :: (T,) - hoge hoge
-Hoge = NDArray[np.float32]
-Hoge_: Hoge = np.array([1.], dtype=np.float32)
-## Fuga :: (T,) - fuga fuga
-Fuga = NDArray[np.float32]
-Fuga_: Fuga = np.array([1.], dtype=np.float32)
-## the item
-HogeFuga = Tuple[Hoge, Fuga]
-HogeFuga_: HogeFuga = (Hoge_, Fuga_)
+ItemMelIpt = Tensor # :: (Freq, Frame) - Melspectrogram for input
+ItemWave   = Tensor # :: (T,)          - Waveform, in range [-0.95, +0.95]
+ItemMelOpt = Tensor # :: (Freq, Frame) - Melspectrogram for output/loss
+ItemMelWaveMel = tuple[ItemMelIpt, ItemWave, ItemMelOpt] # The item
+
+## For typing
+ItemMelIpt_: ItemMelIpt = tensor([[1.,], [1.,]])
+ItemWave_:   ItemWave   = tensor([1.,])
+ItemMelOpt_: ItemMelOpt = tensor([[1.,], [1.,]])
+ItemMelWaveMel_: ItemMelWaveMel = (ItemMelIpt_, ItemWave_, ItemMelOpt_)
 
 # Dynamically-transformed Dataset datum
-## Hoge :: (T=t, 1) - hoge hoge
-HogeDatum = NDArray[np.float32]
-## Fuga :: (T=t, 1) - fuga fuga
-FugaDatum = NDArray[np.float32]
-## the datum
-HogeFugaDatum = Tuple[Hoge, Fuga]
+DatumMelIpt = Tensor # :: (Freq=mel,  Frame=frm) - Clipped melspectrogarm for input
+DatumWave   = Tensor # :: (T=frm*hop,)           - Clipped waveform
+DatumMelOpt = Tensor # :: (Freq=mel,  Frame=frm) - Clipped melspectrogarm for output/loss
+DatumMelWaveMel = tuple[DatumMelIpt, DatumWave, DatumMelOpt] # The datum

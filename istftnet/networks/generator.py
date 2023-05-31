@@ -9,7 +9,7 @@ from torchaudio.transforms import InverseSpectrogram
 from omegaconf import MISSING
 
 
-from ..domain import CondSeriesBatched
+from ..domain import MelIptBatched
 from .merge import default, list_default
 from .up_mrf import UpMRF, ConfUpMRF
 from .initializer import init_conv_norm
@@ -60,7 +60,7 @@ class Generator(nn.Module):
         # iSTFT
         self.istft = InverseSpectrogram(conf.istft.nfft, hop_length=conf.istft.hop)
 
-    def forward(self, cond_series: CondSeriesBatched) -> Tensor: # pyright: ignore [reportIncompatibleMethodOverride]
+    def forward(self, cond_series: MelIptBatched) -> Tensor: # pyright: ignore [reportIncompatibleMethodOverride]
         """(PT API) Forward.
 
         Arguments:
