@@ -4,13 +4,11 @@
 from __future__ import annotations
 from dataclasses import dataclass
 
-from torch import Tensor, zeros_like
-import torch.nn as nn
+from torch import nn, Tensor, zeros_like
 from torch.nn.utils.weight_norm import weight_norm
 from omegaconf import MISSING, II
+from configen import default
 
-
-from .merge import default, list_default
 from .res_block import ResBlock, ConfResBlock
 from .initializer import init_conv_norm
 
@@ -18,9 +16,9 @@ from .initializer import init_conv_norm
 @dataclass
 class ConfMRF:
     """Configuration of the MRF."""
-    feat:   int                = MISSING                       # Feature dimension size of input/middle/output
-    resblocks: list[ConfResBlock] = list_default(ConfResBlock( # Different-kernel ResBlocks
-        feat=II("${..feat}")))                                     # All blocks keep channel dimension size
+    feat:      int                = MISSING                # Feature dimension size of input/middle/output
+    resblocks: list[ConfResBlock] = default([ConfResBlock( # Different-kernel ResBlocks
+        feat=II("...feat"))])                                  # All blocks keep channel dimension size
 
 class MRF(nn.Module):
     """Multi-ReceptiveField (kernel) ResBlocks.
@@ -45,7 +43,7 @@ class ConfUpMRF:
     feat_o:    int     = MISSING          # Feature dimension size of UpMRF output
     up_kernel: int     = MISSING          # Kernel size of upsampling convT, should be even number
     mrf:       ConfMRF = default(ConfMRF( # The MRF
-        feat=II("${..feat_o}")))              # MRF keep feature dim size, so should be UpMRF's output channel size
+        feat=II("..feat_o")))                 # MRF keep feature dim size, so should be UpMRF's output channel size
 
 class UpMRF(nn.Module):
     """Upsampling + MultiReceptiveField.

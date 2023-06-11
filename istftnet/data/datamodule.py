@@ -5,9 +5,10 @@ from typing import Optional
 from dataclasses import dataclass
 
 from pytorch_lightning import LightningDataModule
-from omegaconf import MISSING, SI
+from omegaconf import MISSING, II
 from speechdatasety.helper.loader import generate_loader, ConfLoader # pyright: ignore [reportMissingTypeStubs]
 from torch.utils.data import DataLoader
+from configen import default
 
 from .domain import DatumMelWaveMel
 from .dataset import MelAudioMelDataset, ConfMelAudioMelDataset
@@ -18,12 +19,12 @@ from .corpus import prepare_corpora, ConfCorpora
 class ConfData:
     """Configuration of the Data.
     """
-    adress_data_root: Optional[str] = MISSING
-    corpus: ConfCorpora = ConfCorpora(
-        root=SI("${..adress_data_root}"))
-    dataset: ConfMelAudioMelDataset = ConfMelAudioMelDataset(
-        adress_data_root=SI("${..adress_data_root}"))
-    loader: ConfLoader = ConfLoader()
+    adress_data_root: Optional[str]          = MISSING
+    corpus:           ConfCorpora            = default(ConfCorpora(
+        root=II("..adress_data_root")))
+    dataset:          ConfMelAudioMelDataset = default(ConfMelAudioMelDataset(
+        adress_data_root=II("..adress_data_root")))
+    loader:           ConfLoader             = default(ConfLoader())
 
 class Data(LightningDataModule):
     """Data wrapper.

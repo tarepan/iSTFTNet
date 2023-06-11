@@ -9,4 +9,3 @@ def test_config_load():
 
     # If validation failed, error will be thrown.
     load_conf()
-    assert True

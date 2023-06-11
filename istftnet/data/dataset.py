@@ -13,6 +13,7 @@ from speechdatasety.interface.speechcorpusy import AbstractCorpus, ItemId       
 from speechdatasety.helper.archive import try_to_acquire_archive_contents, save_archive # pyright: ignore [reportMissingTypeStubs]
 from speechdatasety.helper.adress import dataset_adress                                 # pyright: ignore [reportMissingTypeStubs]
 from speechdatasety.helper.access import generate_saver_loader                          # pyright: ignore [reportMissingTypeStubs]
+from configen import default
 
 from ..domain import MelWaveMelBatch
 from .domain import ItemMelWaveMel_, DatumMelWaveMel
@@ -30,8 +31,8 @@ class ConfMelAudioMelDataset:
         att1 - Attribute #1
     """
     adress_data_root: Optional[str] = MISSING
-    attr1: int = MISSING
-    transform: ConfTransform = ConfTransform()
+    attr1:            int           = MISSING
+    transform:        ConfTransform = default(ConfTransform())
 
 class MelAudioMelDataset(Dataset[DatumMelWaveMel]):
     """The MelIpt/Audio/MelOpt dataset from the corpus.

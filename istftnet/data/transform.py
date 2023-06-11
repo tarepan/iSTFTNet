@@ -10,6 +10,7 @@ from torchaudio.functional import resample       # pyright: ignore [reportMissin
 from torchaudio.transforms import MelSpectrogram # pyright: ignore [reportMissingTypeStubs]; because of torchaudio
 import librosa
 from librosa.util import normalize # pyright: ignore [reportUnknownVariableType] ; pylint: disable=no-name-in-module; because of librosa
+from configen import default
 
 from istftnet.data.clip import clip_segment_random, match_length
 
@@ -105,23 +106,23 @@ class ConfPreprocess:
     fmin:              int = MISSING # Minimum frequency
     segment_wavescale: int = MISSING # Segment length [samples]
     use_cuda:      bool = MISSING # Whether to use CUDA
-    raw2wave:    ConfRaw2Wave = ConfRaw2Wave(
-        sr_target    =II("${..sampling_rate}"),
-        use_cuda     =II("${..use_cuda}"))
-    wave2melipt: ConfWave2Mel = ConfWave2Mel(
-        n_fft        =II("${..n_fft}"),
-        hop          =II("${..hop}"),
-        win_size     =II("${..win_size}"),
-        sampling_rate=II("${..sampling_rate}"),
-        mel          =II("${..mel}"),
-        fmin         =II("${..fmin}"))
-    wave2melopt: ConfWave2Mel = ConfWave2Mel(
-        n_fft        =II("${..n_fft}"),
-        hop          =II("${..hop}"),
-        win_size     =II("${..win_size}"),
-        sampling_rate=II("${..sampling_rate}"),
-        mel          =II("${..mel}"),
-        fmin         =II("${..fmin}"))
+    raw2wave:    ConfRaw2Wave = default(ConfRaw2Wave(
+        sr_target    =II("..sampling_rate"),
+        use_cuda     =II("..use_cuda")))
+    wave2melipt: ConfWave2Mel = default(ConfWave2Mel(
+        n_fft        =II("..n_fft"),
+        hop          =II("..hop"),
+        win_size     =II("..win_size"),
+        sampling_rate=II("..sampling_rate"),
+        mel          =II("..mel"),
+        fmin         =II("..fmin")))
+    wave2melopt: ConfWave2Mel = default(ConfWave2Mel(
+        n_fft        =II("..n_fft"),
+        hop          =II("..hop"),
+        win_size     =II("..win_size"),
+        sampling_rate=II("..sampling_rate"),
+        mel          =II("..mel"),
+        fmin         =II("..fmin")))
 
 def preprocess(conf: ConfPreprocess, raw: Raw, milnizer_ipt: MelSpectrogram, milnizer_opt: MelSpectrogram) -> ItemMelWaveMel:
     """Preprocess raw data into the item."""
@@ -149,8 +150,8 @@ class ConfAugment:
     Args:
         len_clip - Length of clipping
     """
-    segment_wavescale: int = MISSING # Segment length with waveform scale [samples]
     hop_mel:           int = MISSING # Hop size of melspectrograms
+    segment_wavescale: int = MISSING # Segment length with waveform scale [samples]
 
 def augment(conf: ConfAugment, items: ItemMelWaveMel) -> DatumMelWaveMel:
     """Dynamically modify item into datum."""
@@ -177,9 +178,11 @@ def collate(datums: list[DatumMelWaveMel]) -> MelWaveMelBatch:
 @dataclass
 class ConfTransform:
     """Configuration of data transform."""
-    hop_mel:           int = MISSING #
-    segment_wavescale: int = MISSING #
-    preprocess: ConfPreprocess = ConfPreprocess(
-        hop              =II("${..hop_mel}"),
-        segment_wavescale=II("${..segment_wavescale}"))
-    augment:    ConfAugment    = ConfAugment()
+    hop_mel:           int            = MISSING # Hop size of melspectrogram
+    segment_wavescale: int            = MISSING # Segment length [sample]
+    preprocess:        ConfPreprocess = default(ConfPreprocess(
+        hop              =II("..hop_mel"),
+        segment_wavescale=II("..segment_wavescale")))
+    augment:           ConfAugment    = default(ConfAugment(
+        hop_mel          =II("..hop_mel"),
+        segment_wavescale=II("..segment_wavescale")))

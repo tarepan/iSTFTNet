@@ -3,9 +3,10 @@
 from typing import Tuple
 from dataclasses import dataclass
 
-from omegaconf import MISSING, SI
+from omegaconf import MISSING, II
 from speechcorpusy import load_preset # pyright: ignore [reportMissingTypeStubs]; bacause of library
 from speechcorpusy.interface import ConfCorpus # pyright: ignore [reportMissingTypeStubs]; bacause of library
+from configen import default
 
 from .dataset import CorpusItems
 
@@ -35,15 +36,15 @@ class ConfCorpora:
         n_val - The number of validation items, for corpus split
         n_test - The number of test items, for corpus split
     """
-    root: str = MISSING
-    train: ConfCorpus = ConfCorpus(
-        root=SI("${..root}"))
-    val: ConfCorpus = ConfCorpus(
-        root=SI("${..root}"))
-    test: ConfCorpus = ConfCorpus(
-        root=SI("${..root}"))
-    n_val: int = MISSING
-    n_test: int = MISSING
+    root:   str        = MISSING
+    n_val:  int        = MISSING
+    n_test: int        = MISSING
+    train:  ConfCorpus = default(ConfCorpus(
+        root=II("..root")))
+    val:    ConfCorpus = default(ConfCorpus(
+        root=II("..root")))
+    test:   ConfCorpus = default(ConfCorpus(
+        root=II("..root")))
 
 def prepare_corpora(conf: ConfCorpora) -> Tuple[CorpusItems, CorpusItems, CorpusItems]:
     """Instantiate corpuses and split them for datasets.

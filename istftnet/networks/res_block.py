@@ -8,17 +8,17 @@ from torch import Tensor
 import torch.nn as nn
 from torch.nn.utils.weight_norm import weight_norm
 from omegaconf import MISSING, II
+from configen import default
 
-from .merge import list_default
 from .initializer import init_conv_norm
 
 
 @dataclass
 class ConfResDilatedConv:
     """Configuration of the The ResDilatedConv."""
-    feat:      int       = MISSING         # Feature dimension size of input/middle/output
-    kernel:    int       = MISSING         # Kernel size of convolution
-    dilations: list[int] = list_default(1) # Dilation factors of sequential dilated Convolutions
+    feat:      int       = MISSING      # Feature dimension size of input/middle/output
+    kernel:    int       = MISSING      # Kernel size of convolution
+    dilations: list[int] = default([1]) # Dilation factors of sequential dilated Convolutions
 
 class ResDilatedConv(nn.Module):
     """Multiple Dilated Conv1ds + 1 residual connection, shape preserved."""
@@ -50,11 +50,11 @@ class ResDilatedConv(nn.Module):
 @dataclass
 class ConfResBlock:
     """Configuration of the ResBlock."""
-    feat:     int                      = MISSING                          # Feature dimension size of input/middle/output
-    kernel:   int                      = MISSING                          # Kernel size of convolutions
-    resconvs: list[ConfResDilatedConv] = list_default(ConfResDilatedConv( # Sequence of ResDilatedConv
-        feat=II("${..feat}"),                                                 # Feature dimension size is preserved in multiple ResDilatedConvs
-        kernel =II("${..kernel}"),))                                          # Kernel size can have variation, but now fixed
+    feat:     int                      = MISSING                      # Feature dimension size of input/middle/output
+    kernel:   int                      = MISSING                      # Kernel size of convolutions
+    resconvs: list[ConfResDilatedConv] = default([ConfResDilatedConv( # Sequence of ResDilatedConv
+        feat   =II("...feat"),                                            # Feature dimension size is preserved in multiple ResDilatedConvs
+        kernel =II("...kernel"),)])                                       # Kernel size can have variation, but now fixed
 
 class ResBlock(nn.Module):
     """Residual block containing multiple Res-DilatedConv."""

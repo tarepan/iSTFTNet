@@ -7,10 +7,9 @@ import torch.nn as nn
 from torch.nn.utils.weight_norm import weight_norm
 from torchaudio.transforms import InverseSpectrogram
 from omegaconf import MISSING
-
+from configen import default
 
 from ..domain import MelIptBatched
-from .merge import default, list_default
 from .up_mrf import UpMRF, ConfUpMRF
 from .initializer import init_conv_norm
 
@@ -24,13 +23,13 @@ class ConfISTFT:
 @dataclass
 class ConfGenerator:
     """Configuration of the iSTFTNet Generator."""
-    feat_i:      int             = MISSING                   # Feature dimension size of input
-    kernel_pre:  int             = MISSING                   # Kernel size of PreConv
-    feat_l0:     int             = MISSING                   # Feature dimension size of layer 0, UpMRF stack's input
-    upmrfs:      list[ConfUpMRF] = list_default(ConfUpMRF()) # UpMRF stack
-    feat_ln:     int             = MISSING                   # Feature dimension size of layer N, UpMRF stack's output
-    kernel_post: int             = MISSING                   # Kernel size of PostConv
-    istft:       ConfISTFT       = default(ConfISTFT())      # Final iSTFT
+    feat_i:      int             = MISSING                # Feature dimension size of input
+    kernel_pre:  int             = MISSING                # Kernel size of PreConv
+    feat_l0:     int             = MISSING                # Feature dimension size of layer 0, UpMRF stack's input
+    feat_ln:     int             = MISSING                # Feature dimension size of layer N, UpMRF stack's output
+    kernel_post: int             = MISSING                # Kernel size of PostConv
+    upmrfs:      list[ConfUpMRF] = default([ConfUpMRF()]) # UpMRF stack
+    istft:       ConfISTFT       = default(ConfISTFT())   # Final iSTFT
 
 class Generator(nn.Module):
     """The iSTFTNet Generator, 'Conv + UpMRF xL + Conv + iSTFT'.
