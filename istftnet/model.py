@@ -1,102 +1,138 @@
 """The model"""
 
-
+import itertools
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 import torch
-import torch.nn.functional as F
-from torch.optim import Adam
-from torch.optim.lr_scheduler import StepLR
-import pytorch_lightning as pl
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import ExponentialLR
+import lightning as L                                           # pyright: ignore [reportMissingTypeStubs]
+from lightning.pytorch.core.optimizer import LightningOptimizer # pyright: ignore [reportMissingTypeStubs]
 from omegaconf import MISSING
+from configen import default
 
-from .domain import HogeFugaBatch
-from .data.domain import Piyo
-from .data.transform import ConfTransform, augment, collate, load_raw, preprocess
+from .domain import MelWaveMelBatch
+from .data.domain import Raw
+from .data.transform import ConfTransform, augment, collate, gen_melnizer, load_raw, preprocess, wave_to_mel_batch
 from .networks.generator import Generator, ConfGenerator
+from .networks.discriminator import MultiPeriodDiscriminator, MultiScaleDiscriminator
+from .loss import adv_d_loss, adv_g_loss, fm_loss, mel_loss
 
 
 @dataclass
 class ConfOptim:
-    """Configuration of optimizer.
-    Args:
-        learning_rate: Optimizer learning rate
-        sched_decay_rate: LR shaduler decay rate
-        sched_decay_step: LR shaduler decay step
-    """
-    learning_rate: float = MISSING
-    sched_decay_rate: float = MISSING
-    sched_decay_step: int = MISSING
+    """Configuration of the optimizers."""
+    learning_rate:    float = MISSING # Optimizer learning rate
+    beta_1:           float = MISSING # Optimizer AdamW beta1
+    beta_2:           float = MISSING # Optimizer AdamW beta2
+    sched_decay_rate: float = MISSING # ExponentialLR shaduler decay rate (gamma)
 
 @dataclass
 class ConfModel:
     """Configuration of the Model.
     """
-    net: ConfGenerator = ConfGenerator()
-    optim: ConfOptim = ConfOptim()
-    transform: ConfTransform = ConfTransform()
+    sampling_rate: int           = MISSING
+    net:           ConfGenerator = default(ConfGenerator())
+    optim:         ConfOptim     = default(ConfOptim())
+    transform:     ConfTransform = default(ConfTransform())
 
-class Model(pl.LightningModule):
+"""
+ConfModel
+    sampling_rate: 
+    net:
+
+    optim:
+    transform: "${transform}"
+"""
+class Model(L.LightningModule):
     """The model.
     """
 
     def __init__(self, conf: ConfModel):
         super().__init__()
         self.save_hyperparameters()
+
+        self.automatic_optimization = False
+
         self._conf = conf
-        self._net = Generator(conf.net)
+        self.generator = Generator(conf.net)
+        self.disc_mpd = MultiPeriodDiscriminator()
+        self.disc_msd = MultiScaleDiscriminator()
+        self.melnizer_ipt = gen_melnizer(conf.transform.preprocess.wave2melipt)
+        self.melnizer_opt = gen_melnizer(conf.transform.preprocess.wave2melopt)
 
-    def forward(self, batch: HogeFugaBatch): # pyright: ignore [reportIncompatibleMethodOverride] ; pylint: disable=arguments-differ
-        """(PL API) Run inference toward a batch.
-        """
-        hoge, _, _ = batch
+    def forward(self, batch: MelWaveMelBatch): # pyright: ignore [reportIncompatibleMethodOverride] ; pylint: disable=arguments-differ
+        """(PL API) Run inference toward a batch :: -> (B, Feat=1, T)."""
+        return self.generator(batch[0])
 
-        # Inference :: (Batch, T, Feat=dim_i) -> (Batch, T, Feat=dim_o)
-        return self._net.generate(hoge)
+    def training_step(self, batch: MelWaveMelBatch): # pyright: ignore [reportIncompatibleMethodOverride] ; pylint: disable=arguments-differ
+        """(PL API) Train the model with a batch."""
 
-    # Typing of PL step API is poor. It is typed as `(self, *args, **kwargs)`.
-    def training_step(self, batch: HogeFugaBatch): # pyright: ignore [reportIncompatibleMethodOverride] ; pylint: disable=arguments-differ
-        """(PL API) Train the model with a batch.
-        """
+        # Optimizers
+        opts : tuple[LightningOptimizer, LightningOptimizer] = self.optimizers() # pyright: ignore [reportGeneralTypeIssues] ; because of L
+        opt_g, opt_d = opts                                                      # pylint: disable=unpacking-non-sequence
 
-        hoge, fuga_gt, _ = batch
+        # Data
+        mel_ipt, wave_gt, mel_gt = batch
+        wave_gt = wave_gt.unsqueeze(1)
 
-        # Forward :: (Batch, T, Feat=dim_i) -> (Batch, T, Feat=dim_o)
-        fuga_pred = self._net(hoge)
+        # Common_Forward
+        wave_pred = self.generator(mel_ipt)
 
-        # Loss
-        loss = F.l1_loss(fuga_pred, fuga_gt)
+        # D_Forward/Loss
+        d_mpd_real, d_mpd_fake, _, _ = self.disc_mpd(wave_gt, wave_pred.detach())
+        d_msd_real, d_msd_fake, _, _ = self.disc_msd(wave_gt, wave_pred.detach())
+        loss_adv_d_mpd = adv_d_loss(d_mpd_real, d_mpd_fake)
+        loss_adv_d_msd = adv_d_loss(d_msd_real, d_msd_fake)
+        loss_d = loss_adv_d_mpd + loss_adv_d_msd
+        # D_Backward/Optim
+        opt_d.zero_grad()                                                        # pyright: ignore [reportGeneralTypeIssues, reportUnknownMemberType] ; because of L
+        self.manual_backward(loss_d)
+        opt_d.step()
 
-        self.log('loss', loss) #type: ignore ; because of PyTorch-Lightning
-        return {"loss": loss}
+        # G_Loss
+        _, d_mpd_fake, feat_mpd_real, feat_mpd_fake = self.disc_mpd(wave_gt, wave_pred)
+        _, d_msd_fake, feat_msd_real, feat_msd_fake = self.disc_msd(wave_gt, wave_pred)
+        mel_pred = wave_to_mel_batch(wave_pred.squeeze(1), self._conf.transform.preprocess.wave2mel)
+        ## Adv
+        loss_adv_g_mpd = adv_g_loss(d_mpd_fake)
+        loss_adv_g_msd = adv_g_loss(d_msd_fake)
+        loss_adv_g     =        (loss_adv_g_mpd + loss_adv_g_msd)
+        ## Fm
+        loss_fm_mpd    = fm_loss(feat_mpd_real, feat_mpd_fake)
+        loss_fm_msd    = fm_loss(feat_msd_real, feat_msd_fake)
+        loss_fm        =        (loss_fm_mpd + loss_fm_msd)
+        ## Mel
+        loss_mel       = 45.0 * mel_loss(mel_gt, mel_pred)
+        ## total
+        loss_g         = loss_adv_g + loss_fm + loss_mel
+        # G_Backward/Optim
+        opt_g.zero_grad()                                                        # pyright: ignore [reportGeneralTypeIssues, reportUnknownMemberType] ; because of L
+        self.manual_backward(loss_g)
+        opt_g.step()
 
-    def validation_step(self, batch: HogeFugaBatch, batch_idx: int): # pyright: ignore [reportIncompatibleMethodOverride] ; pylint: disable=arguments-differ,unused-argument
+        # Logging
+        self.log_dict({"train/D": loss_d, "train/G": loss_g, "train/G/adv": loss_adv_g, "train/G/fm": loss_fm, "train/G/mel": loss_mel, }) # pyright: ignore [reportUnknownMemberType]
+
+    def validation_step(self, batch: MelWaveMelBatch, batch_idx: int): # pyright: ignore [reportIncompatibleMethodOverride] ; pylint: disable=arguments-differ,unused-argument
         """(PL API) Validate the model with a batch.
         """
 
-        i_pred, o_gt, _ = batch
+        # Data
+        mel_ipt, _, mel_gt = batch
 
-        # Forward :: (Batch, T, Feat=dim_i) -> (Batch, T, Feat=dim_o)
-        o_pred_fwd = self._net(i_pred)
-
-        # Inference :: (Batch, T, Feat=dim_i) -> (Batch, T, Feat=dim_o)
-        ## Usecase: Autoregressive model (`o_pred_fwd` for teacher-forcing, `o_pred_inf` for AR generation)
-        # o_pred_inf = self.net.generate(i_pred)
-
-        # Loss
-        loss_fwd = F.l1_loss(o_pred_fwd, o_gt)
+        wave_pred = self.generator(mel_ipt).squeeze(1)
+        mel_pred = wave_to_mel_batch(wave_pred, self._conf.transform.preprocess.wave2mel)
+        loss_mel = mel_loss(mel_gt, mel_pred).item()
 
         # Logging
+        self.log_dict({'val/G/mel': loss_mel,}) # pyright: ignore [reportUnknownMemberType]
         ## Audio
         # # [PyTorch](https://pytorch.org/docs/stable/tensorboard.html#torch.utils.tensorboard.writer.SummaryWriter.add_audio)
         # #                                                      ::Tensor(1, L)
-        # self.logger.experiment.add_audio(f"audio_{batch_idx}", o_pred_fwd, global_step=self.global_step, sample_rate=self.conf.sampling_rate)
-
-        return {
-            "val_loss": loss_fwd,
-        }
+        self.logger.experiment.add_audio(f"audio_{batch_idx}", wave_pred, global_step=self.global_step, sample_rate=self._conf.sampling_rate)
 
     # def test_step(self, batch, batch_idx: int): # pyright: ignore [reportIncompatibleMethodOverride] ; pylint: disable=arguments-differ
     #     """(PL API) Test a batch. If not provided, test_step == validation_step."""
@@ -107,22 +143,18 @@ class Model(pl.LightningModule):
         """
         conf = self._conf.optim
 
-        optim = Adam(self._net.parameters(), lr=conf.learning_rate)
-        sched = {
-            "scheduler": StepLR(optim, conf.sched_decay_step, conf.sched_decay_rate),
-            "interval": "step",
-        }
+        opt_g = AdamW(self.generator.parameters(),                                             lr=conf.learning_rate, betas=(conf.beta_1, conf.beta_2))
+        opt_d = AdamW(itertools.chain(self.disc_mpd.parameters(), self.disc_msd.parameters()), lr=conf.learning_rate, betas=(conf.beta_1, conf.beta_2))
+        sched_g = ExponentialLR(opt_g, gamma=conf.sched_decay_rate)
+        sched_d = ExponentialLR(opt_d, gamma=conf.sched_decay_rate)
 
-        return {
-            "optimizer": optim,
-            "lr_scheduler": sched,
-        }
+        return [opt_g, opt_d], [sched_g, sched_d]
 
     # def predict_step(self, batch: HogeFugaBatch, batch_idx: int): # pyright: ignore [reportIncompatibleMethodOverride] ; pylint: disable=arguments-differ
     #     """(PL API) Run prediction with a batch. If not provided, predict_step == forward."""
     #     return pred
 
-    def sample(self) -> Piyo:
+    def sample(self) -> Raw:
         """Acquire sample input toward preprocess."""
 
         # Audio Example (librosa is not handled by this template)
@@ -131,14 +163,14 @@ class Model(pl.LightningModule):
 
         return load_raw(self._conf.transform.load, path)
 
-    def load(self, path: Path) -> Piyo:
+    def load(self, path: Path) -> Raw:
         """Load raw inputs.
         Args:
             path - Path to the input.
         """
         return load_raw(self._conf.transform.load, path)
 
-    def preprocess(self, piyo: Piyo, to_device: Optional[str] = None) -> HogeFugaBatch:
+    def preprocess(self, piyo: Raw, to_device: Optional[str] = None) -> MelWaveMelBatch:
         """Preprocess raw inputs into model inputs for inference."""
 
         conf = self._conf.transform
