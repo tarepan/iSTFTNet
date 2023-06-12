@@ -21,9 +21,9 @@ class ConfData:
     """
     adress_data_root: Optional[str]          = MISSING
     corpus:           ConfCorpora            = default(ConfCorpora(
-        root=II("..adress_data_root")))
+        root                                     =II("..adress_data_root")))
     dataset:          ConfMelAudioMelDataset = default(ConfMelAudioMelDataset(
-        adress_data_root=II("..adress_data_root")))
+        adress_data_root                         =II("..adress_data_root")))
     loader:           ConfLoader             = default(ConfLoader())
 
 class Data(LightningDataModule):

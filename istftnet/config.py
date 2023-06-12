@@ -128,11 +128,12 @@ train:
         name_version: "version_0"
 """
 
+
 @dataclass
 class ConfGlobal:
     """Configuration of everything."""
-    seed:             int           = MISSING # PyTorch-Lightning's seed for every random system
-    path_extend_conf: Optional[str] = MISSING # Path of configuration yaml which extends default config
+    seed:             int           = MISSING                  # Random seed
+    path_extend_conf: Optional[str] = MISSING                  # Path of configuration yaml file which extends default config
     transform:        ConfTransform = default(ConfTransform())
     model:            ConfModel     = default(ConfModel())
     data:             ConfData      = default(ConfData())

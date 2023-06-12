@@ -31,7 +31,6 @@ class ConfMelAudioMelDataset:
         att1 - Attribute #1
     """
     adress_data_root: Optional[str] = MISSING
-    attr1:            int           = MISSING
     transform:        ConfTransform = default(ConfTransform())
 
 class MelAudioMelDataset(Dataset[DatumMelWaveMel]):
@@ -50,7 +49,7 @@ class MelAudioMelDataset(Dataset[DatumMelWaveMel]):
         self._items  = items[1]
 
         # Calculate data path
-        conf_specifier = f"{conf.attr1}{conf.transform}"
+        conf_specifier = f"{conf.transform}"
         item_specifier = f"{list(map(lambda item: item[0], self._items))}"
         exp_specifier = md5((conf_specifier+item_specifier).encode()).hexdigest()
         self._adress_archive, self._path_contents = dataset_adress(conf.adress_data_root, self._corpus.__class__.__name__, "MelAudioMel", exp_specifier)

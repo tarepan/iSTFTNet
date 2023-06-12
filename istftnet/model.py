@@ -11,7 +11,7 @@ from torch.optim.lr_scheduler import ExponentialLR
 import lightning as L                                           # pyright: ignore [reportMissingTypeStubs]
 from lightning.pytorch.core.optimizer import LightningOptimizer # pyright: ignore [reportMissingTypeStubs]
 from omegaconf import MISSING
-from configen import default
+from configen import default                                    # pyright: ignore [reportMissingTypeStubs]
 
 from .domain import MelWaveMelBatch
 from .data.domain import Raw
@@ -38,17 +38,8 @@ class ConfModel:
     optim:         ConfOptim     = default(ConfOptim())
     transform:     ConfTransform = default(ConfTransform())
 
-"""
-ConfModel
-    sampling_rate: 
-    net:
-
-    optim:
-    transform: "${transform}"
-"""
 class Model(L.LightningModule):
-    """The model.
-    """
+    """The model."""
 
     def __init__(self, conf: ConfModel):
         super().__init__()
@@ -95,15 +86,15 @@ class Model(L.LightningModule):
         # G_Loss
         _, d_mpd_fake, feat_mpd_real, feat_mpd_fake = self.disc_mpd(wave_gt, wave_pred)
         _, d_msd_fake, feat_msd_real, feat_msd_fake = self.disc_msd(wave_gt, wave_pred)
-        mel_pred = wave_to_mel_batch(wave_pred.squeeze(1), self._conf.transform.preprocess.wave2mel)
+        mel_pred = wave_to_mel_batch(wave_pred.squeeze(1), self.melnizer_opt, self._conf.transform.preprocess.wave2melopt)
         ## Adv
         loss_adv_g_mpd = adv_g_loss(d_mpd_fake)
         loss_adv_g_msd = adv_g_loss(d_msd_fake)
-        loss_adv_g     =        (loss_adv_g_mpd + loss_adv_g_msd)
+        loss_adv_g     =        loss_adv_g_mpd + loss_adv_g_msd
         ## Fm
         loss_fm_mpd    = fm_loss(feat_mpd_real, feat_mpd_fake)
         loss_fm_msd    = fm_loss(feat_msd_real, feat_msd_fake)
-        loss_fm        =        (loss_fm_mpd + loss_fm_msd)
+        loss_fm        =        loss_fm_mpd + loss_fm_msd
         ## Mel
         loss_mel       = 45.0 * mel_loss(mel_gt, mel_pred)
         ## total
@@ -124,7 +115,8 @@ class Model(L.LightningModule):
         mel_ipt, _, mel_gt = batch
 
         wave_pred = self.generator(mel_ipt).squeeze(1)
-        mel_pred = wave_to_mel_batch(wave_pred, self._conf.transform.preprocess.wave2mel)
+        mel_pred = wave_to_mel_batch(wave_pred, self.melnizer_opt, self._conf.transform.preprocess.wave2melopt)
+
         loss_mel = mel_loss(mel_gt, mel_pred).item()
 
         # Logging

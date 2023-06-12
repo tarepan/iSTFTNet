@@ -1,8 +1,7 @@
 """Run training"""
 
 
-import pytorch_lightning as pl
-# import torchaudio
+import lightning as L
 from lightlightning import train # pyright: ignore [reportMissingTypeStubs]
 
 from .model import Model
@@ -18,7 +17,7 @@ def main_train():
     conf = load_conf()
 
     # Setup
-    pl.seed_everything(conf.seed)
+    L.seed_everything(conf.seed)
     model = Model(conf.model)
     model.train()
     datamodule = Data(conf.data)
