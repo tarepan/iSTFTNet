@@ -4,7 +4,7 @@
 from typing import Optional
 from dataclasses import dataclass
 
-from pytorch_lightning import LightningDataModule
+import lightning as L
 from omegaconf import MISSING, II
 from speechdatasety.helper.loader import generate_loader, ConfLoader # pyright: ignore [reportMissingTypeStubs]
 from torch.utils.data import DataLoader
@@ -26,7 +26,7 @@ class ConfData:
         adress_data_root                         =II("..adress_data_root")))
     loader:           ConfLoader             = default(ConfLoader())
 
-class Data(LightningDataModule):
+class Data(L.LightningDataModule):
     """Data wrapper.
     """
     def __init__(self, conf: ConfData):
