@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from omegaconf import MISSING, II
-from torch import Tensor, FloatTensor, stack, clamp, log # pyright: ignore [reportUnknownVariableType] ; because of PyTorch ; pylint: disable=no-name-in-module
+from torch import Tensor, FloatTensor, tensor, stack, clamp, log # pyright: ignore [reportUnknownVariableType] ; because of PyTorch ; pylint: disable=no-name-in-module
 import torch.nn.functional as F
 from torchaudio.functional import resample       # pyright: ignore [reportMissingTypeStubs]; because of torchaudio
 from torchaudio.transforms import MelSpectrogram # pyright: ignore [reportMissingTypeStubs]; because of torchaudio
@@ -12,10 +12,9 @@ import librosa
 from librosa.util import normalize # pyright: ignore [reportUnknownVariableType] ; pylint: disable=no-name-in-module; because of librosa
 from configen import default
 
-from istftnet.data.clip import clip_segment_random, match_length
-
 from ..domain import MelIptBatched, WaveBatched, MelOptBatched, MelWaveMelBatch
 from .domain import Raw, ItemMelIpt, ItemWave, ItemMelOpt, ItemMelWaveMel, DatumMelWaveMel
+from .clip import clip_segment_random, match_length
 
 
 # [Data transformation]
@@ -156,6 +155,7 @@ class ConfAugment:
 def augment(conf: ConfAugment, items: ItemMelWaveMel) -> DatumMelWaveMel:
     """Dynamically modify item into datum."""
     mel_ipt, wave, mel_opt = items
+    mel_ipt, wave, mel_opt = tensor(mel_ipt), tensor(wave), tensor(mel_opt)
 
     mel_ipt_datum, wave_datum, mel_opt_datum = clip_segment_random([(mel_ipt, conf.hop_mel), (wave, 1), (mel_opt, conf.hop_mel)], conf.segment_wavescale)
 
