@@ -24,8 +24,7 @@ Samples or Link to [demo page].
 ### Install
 
 ```bash
-# pip install "torch==1.13.1" -q      # Based on your environment (validated with 1.13.1)
-# pip install "torchaudio==0.13.1" -q # Based on your environment
+# pip install "torch==2.0.1" "torchaudio==2.0.1" "lightning==2.0.3" git+https://github.com/tarepan/lightlightning.git -q
 pip install git+https://github.com/tarepan/iSTFTNet
 ```
 
@@ -45,8 +44,8 @@ For detail, jump to ☞ [![ColabBadge]][notebook] and check it.
 
 ### Performance <!-- omit in toc -->
 - training
-  - x.x [iter/sec] @ NVIDIA X0 on Google Colaboratory (AMP+)
-  - take about y days for whole training
+  - 1.5 [iter/sec] @ NVIDIA T4 on Google Colaboratory (AMP+)
+  - take about 1.5 days for whole training (200k steps)
 - inference
   - z.z [sec/sample] @ xx
 
