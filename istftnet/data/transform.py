@@ -152,19 +152,20 @@ class ConfAugment:
     hop_mel:           int = MISSING # Hop size of melspectrograms
     segment_wavescale: int = MISSING # Segment length with waveform scale [samples]
 
-def augment(conf: ConfAugment, items: ItemMelWaveMel) -> DatumMelWaveMel:
+def augment(conf: ConfAugment, mode: str, items: ItemMelWaveMel) -> DatumMelWaveMel:
     """Dynamically modify item into datum."""
     mel_ipt, wave, mel_opt = items
     mel_ipt, wave, mel_opt = tensor(mel_ipt), tensor(wave), tensor(mel_opt)
 
-    mel_ipt_datum, wave_datum, mel_opt_datum = clip_segment_random([(mel_ipt, conf.hop_mel), (wave, 1), (mel_opt, conf.hop_mel)], conf.segment_wavescale)
+    segment_wavescale = conf.segment_wavescale if mode == "train" else (wave.shape[0] // conf.hop_mel * conf.hop_mel)
+    mel_ipt_datum, wave_datum, mel_opt_datum = clip_segment_random([(mel_ipt, conf.hop_mel), (wave, 1), (mel_opt, conf.hop_mel)], segment_wavescale)
 
     return mel_ipt_datum, wave_datum, mel_opt_datum
 
 ###################################################################################################################################
 # [collation]
 
-def collate(datums: list[DatumMelWaveMel]) -> MelWaveMelBatch:
+def collate(mode: str, datums: list[DatumMelWaveMel]) -> MelWaveMelBatch:
     """Collation (datum_to_batch) - Bundle multiple datum into a batch."""
 
     mel_ipt_batched: MelIptBatched = stack([datum[0] for datum in datums])

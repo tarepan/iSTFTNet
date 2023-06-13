@@ -36,17 +36,21 @@ class ConfMelAudioMelDataset:
 class MelAudioMelDataset(Dataset[DatumMelWaveMel]):
     """The MelIpt/Audio/MelOpt dataset from the corpus.
     """
-    def __init__(self, conf: ConfMelAudioMelDataset, items: CorpusItems):
+    def __init__(self, conf: ConfMelAudioMelDataset, items: CorpusItems, mode: str):
         """
         Args:
-            conf: The Configuration
+            conf:  The Configuration
             items: Corpus instance and filtered item information (ItemId/Path pair)
+            mode:  train | eval | test
         """
 
+        # Validation
+        assert (mode == "train") or (mode == "eval") or (mode == "test"), f"Not supported mode: {mode}"
         # Store parameters
         self._conf = conf
         self._corpus = items[0]
         self._items  = items[1]
+        self._mode = mode
 
         # Calculate data path
         conf_specifier = f"{conf.transform}"
@@ -90,11 +94,11 @@ class MelAudioMelDataset(Dataset[DatumMelWaveMel]):
         """(API) Load the n-th datum from the dataset with tranformation.
         """
         item_id = self._items[n][0]
-        return augment(self._conf.transform.augment, self._load(item_id))
+        return augment(self._conf.transform.augment, self._mode, self._load(item_id))
 
     def __len__(self) -> int:
         return len(self._items)
 
     def collate_fn(self, items: List[DatumMelWaveMel]) -> MelWaveMelBatch:
         """(API) datum-to-batch function."""
-        return collate(items)
+        return collate(self._mode, items)

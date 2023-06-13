@@ -167,8 +167,8 @@ class Model(L.LightningModule):
 
         conf = self._conf.transform
         hoge_fuga = preprocess(conf.preprocess, piyo)
-        hoge_fuga_datum = augment(conf.augment, hoge_fuga)
-        batch = collate([hoge_fuga_datum])
+        hoge_fuga_datum = augment(conf.augment, "test", hoge_fuga)
+        batch = collate("test", [hoge_fuga_datum])
 
         # To device
         device = torch.device(to_device) if to_device else torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')

@@ -45,10 +45,10 @@ class Data(L.LightningDataModule):
         corpus_train, corpus_val, corpus_test = prepare_corpora(self._conf.corpus)
 
         if stage == "fit" or stage is None:
-            self.dataset_train = MelAudioMelDataset(self._conf.dataset, corpus_train)
-            self.dataset_val   = MelAudioMelDataset(self._conf.dataset, corpus_val)
+            self.dataset_train = MelAudioMelDataset(self._conf.dataset, corpus_train, "train")
+            self.dataset_val   = MelAudioMelDataset(self._conf.dataset, corpus_val,   "eval")
         if stage == "test" or stage is None:
-            self.dataset_test  = MelAudioMelDataset(self._conf.dataset, corpus_test)
+            self.dataset_test  = MelAudioMelDataset(self._conf.dataset, corpus_test,  "test")
 
     def train_dataloader(self) -> DataLoader[DatumMelWaveMel]:
         """(PL-API) Generate training dataloader."""
